@@ -1,0 +1,134 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Vector Search Demo</title>
+    <link rel="stylesheet" href="{% static 'search/styles.css' %}">
+</head>
+<body>
+    <header class="topbar">
+        <div>
+            <p class="eyebrow">Vector search sandbox</p>
+            <h1>Rank text rows by cosine similarity</h1>
+        </div>
+        <div class="stat-strip" aria-label="Demo stats">
+            <span>{{ documents|length }} rows</span>
+            <span>{{ vector_dimensions }} dimensions</span>
+            <span>SQLite</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="search-band" aria-label="Search controls">
+            <form class="search-form" method="get">
+                <label for="query">Query text</label>
+                <div class="query-control">
+                    <input id="query" type="search" name="q" value="{{ query }}" placeholder="django database search">
+                    <button type="submit">Search</button>
+                </div>
+                <div class="examples" aria-label="Example searches">
+                    {% for example in examples %}
+                        <a href="?q={{ example|urlencode }}">{{ example }}</a>
+                    {% endfor %}
+                </div>
+            </form>
+
+            <aside class="vector-panel" aria-label="Query embedding">
+                <div class="panel-heading">
+                    <h2>Query embedding</h2>
+                    {% if query %}
+                        <span>top {{ shown_component_count }}</span>
+                    {% else %}
+                        <span>waiting</span>
+                    {% endif %}
+                </div>
+                <div class="vector-bars">
+                    {% for component in query_components %}
+                        <div class="bar-row">
+                            <span class="bar-label">{{ component.label }}</span>
+                            <span class="bar-track">
+                                <span class="bar-fill {{ component.direction }}" style="width: {{ component.percent }}%"></span>
+                            </span>
+                            <span class="bar-value">{{ component.display }}</span>
+                        </div>
+                    {% empty %}
+                        <p class="empty-copy">Run a search to see the largest embedding components.</p>
+                    {% endfor %}
+                </div>
+            </aside>
+        </section>
+
+        {% if query %}
+            <section class="results-shell" aria-label="Ranked search results">
+                <div class="section-head">
+                    <h2>Top matches</h2>
+                    <span>{{ result_count }} rows scored</span>
+                </div>
+
+                <ol class="results-list">
+                    {% for result in results %}
+                        <li class="result-card">
+                            <div class="rank">#{{ forloop.counter }}</div>
+                            <article class="result-main">
+                                <div class="result-meta">
+                                    <span>{{ result.document.category }}</span>
+                                    <strong>{{ result.score_percent }}%</strong>
+                                </div>
+                                <h3>{{ result.document.title }}</h3>
+                                <p>{{ result.document.body }}</p>
+                                <div class="score-track" aria-hidden="true">
+                                    <span style="width: {{ result.score_percent }}%"></span>
+                                </div>
+                                <details>
+                                    <summary>Embedding weights</summary>
+                                    <div class="vector-bars compact">
+                                        {% for component in result.components %}
+                                            <div class="bar-row">
+                                                <span class="bar-label">{{ component.label }}</span>
+                                                <span class="bar-track">
+                                                    <span class="bar-fill {{ component.direction }}" style="width: {{ component.percent }}%"></span>
+                                                </span>
+                                                <span class="bar-value">{{ component.display }}</span>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </details>
+                            </article>
+                        </li>
+                    {% endfor %}
+                </ol>
+            </section>
+        {% else %}
+            <section class="library-shell" aria-label="Seed database rows">
+                <div class="section-head">
+                    <h2>Seed rows</h2>
+                    <span>stored with embeddings</span>
+                </div>
+                <div class="document-grid">
+                    {% for document in documents %}
+                        <article class="document-tile">
+                            <span>{{ document.category }}</span>
+                            <h3>{{ document.title }}</h3>
+                            <p>{{ document.body }}</p>
+                        </article>
+                    {% endfor %}
+                </div>
+            </section>
+        {% endif %}
+
+        <section class="concept-shell" aria-label="Embedding explanation">
+            <div>
+                <h2>Hugging Face model</h2>
+                <p>The app downloads <strong>{{ embedding_model_name }}</strong> from Hugging Face, embeds each row, and stores the normalized vector in SQLite.</p>
+            </div>
+            <div>
+                <h2>Ranking rule</h2>
+                <p>Each result is ordered by the cosine between the query vector and the stored row vector.</p>
+                <code>score = dot(query, row) / (||query|| * ||row||)</code>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
